@@ -1,5 +1,7 @@
 use std::clone::Clone;
 
+const KEY_EXISTS: &str = "Element with given id is already in the map.";
+
 pub struct IdMap<T> where T: Clone {
     vec: Vec<Option<T>>,
     free_slots: Vec<usize>
@@ -15,7 +17,9 @@ impl<T> IdMap<T> where T: Clone {
 
     pub fn insert(&mut self, id: usize, value: T) {
         if id < self.vec.len() {
-            let ind = self.free_slots.iter().position(|x| *x == id).unwrap();
+            let ind = self.free_slots.iter()
+                .position(|x| *x == id)
+                .expect(KEY_EXISTS);
             self.free_slots.swap_remove(ind);
         } else {
             for i in self.vec.len()..id {
@@ -51,5 +55,13 @@ impl<T> IdMap<T> where T: Clone {
             self.vec[ind] = Some(value);
             ind
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&T> {
+        self.vec.iter().filter_map(|x| x.as_ref())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
+        self.vec.iter_mut().filter_map(|x| x.as_mut())
     }
 }

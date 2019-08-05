@@ -2,9 +2,10 @@ mod vehicle;
 
 use core::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use crate::util::{IdMap, LinearFunc, CubicFunc};
 use vehicle::Vehicle;
+pub use vehicle::VehicleState;
 
 pub struct Simulation {
 	step: usize,
@@ -27,6 +28,46 @@ impl Simulation {
 		}
 	}
 
+	pub fn add_vehicle(&mut self, id: usize) -> usize {
+		let veh = Vehicle::new(id);
+		self.vehs.insert_free(veh)
+	}
+
+	pub fn set_vehicle_pos(&mut self, id: usize, link: usize, lane: u8, pos: f32) {
+		self.vehs.get_mut(id).set_pos(link, lane, pos);
+	}
+
+	pub fn add_link(&mut self, id: usize, length: f32, speed_limit: f32) {
+		self.links.insert(id, Link {
+			id,
+			links_in: vec![],
+			links_out: vec![],
+			length,
+			lanes: smallvec![],
+			speed_limit,
+			obstacles: vec![]
+		});
+	}
+
+	pub fn add_lane(&mut self, link: usize, dist_func: LinearFunc, lat_func: CubicFunc) {
+		self.links.get_mut(link).lanes.push(Lane {
+			dist: dist_func,
+			lat: lat_func
+		});
+	}
+
+	pub fn step(&mut self) {
+		// todo
+
+		for veh in self.vehs.iter_mut() {
+			veh.integrate(self.step_delta, &self.links);
+		}
+	}
+
+	pub fn get_vehicle_states<'a>(&'a self) -> impl Iterator<Item=VehicleState> + 'a {
+		self.vehs.iter().map(|v| v.get_state())
+	}
+
 	//pub fn add_link()
 }
 
@@ -43,16 +84,16 @@ struct Link {
 
 #[derive(Clone, Copy)]
 struct LinkConnection {
-	link_in: usize,
-	link_out: usize,
-	num_lanes: u8,
-	lanes: [(u8, u8); 8]
+	pub link_in: usize,
+	pub link_out: usize,
+	pub num_lanes: u8,
+	pub lanes: [(u8, u8); 8]
 }
 
 #[derive(Clone)]
 struct Lane {
-	dist: LinearFunc,
-	lat: CubicFunc
+	pub dist: LinearFunc,
+	pub lat: CubicFunc
 }
 
 #[derive(Clone, Copy)]

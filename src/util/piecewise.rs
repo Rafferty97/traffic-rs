@@ -17,24 +17,35 @@ struct LinearFuncPiece {
 }
 
 impl LinearFunc {
-    pub fn from_points<P>(points: &mut P) -> Self
-    where P: Iterator<Item=(f32,f32)> {
+    pub fn from_points(points: &[(f32, f32)]) -> Self {
+        let mut points = points.iter();
         let mut pieces = vec![];
 
         let (mut x1, mut y1) = points.next().unwrap();
         while let Some((x2, y2)) = points.next() {
             pieces.push(LinearFuncPiece {
                 min_x: x1,
-                max_x: x2,
+                max_x: *x2,
                 m: (y2 - y1) / (x2 - x1),
                 b: y1
             });
-            x1 = x2;
-            y1 = y2;
+            x1 = *x2;
+            y1 = *y2;
         }
 
         Self {
             pieces
+        }
+    }
+
+    pub fn from_const(min_x: f32, max_x: f32, y: f32) -> Self {
+        Self {
+            pieces: vec![LinearFuncPiece {
+                min_x,
+                max_x,
+                m: 0.0,
+                b: y
+            }]
         }
     }
 
@@ -66,20 +77,20 @@ pub struct CubicFuncPiece {
 }
 
 impl CubicFunc {
-    pub fn from_points<P>(points: &mut P) -> Self
-    where P: Iterator<Item=(f32,f32)> {
+    pub fn from_points(points: &[(f32, f32)]) -> Self {
+        let mut points = points.iter();
         let mut pieces = vec![];
 
         let (mut x1, mut y1) = points.next().unwrap();
         while let Some((x2, y2)) = points.next() {
             pieces.push(CubicFuncPiece {
                 min_x: x1,
-                max_x: x2,
+                max_x: *x2,
                 y1,
                 yd: y2 - y1
             });
-            x1 = x2;
-            y1 = y2;
+            x1 = *x2;
+            y1 = *y2;
         }
 
         Self {
@@ -104,19 +115,29 @@ impl CubicFunc {
             if x < p.min_x { Ordering::Greater }
             else if x >= p.max_x { Ordering::Less }
             else { Ordering::Equal }
-        }).unwrap();
+        });
+        let ind = match ind {
+            Ok(i) => i,
+            Err(i) => if i == 0 { 0 } else { self.pieces.len() - 1 }
+        };
         self.pieces[ind]
     }
 }
 
 impl CubicFuncPiece {
     pub fn get_y_and_dy(&self, x: f32) -> (f32, f32) {
+        if self.yd == 0.0 || x <= self.min_x {
+            return (self.y1, 0.0);
+        }
+        if x >= self.max_x {
+            return (self.y1 + self.yd, 0.0);
+        }
         let xd = self.max_x - self.min_x;
         let yd = self.yd;
         let t = (x - self.min_x) / xd;
-        let u = t * t * (3f32 - 2f32 * t);
+        let u = t * t * (3.0 - 2.0 * t);
         let y = self.y1 + u * yd;
-        let dy = (yd / xd) * 6f32 * t * (1f32 - t);
+        let dy = (yd / xd) * 6.0 * t * (1.0 - t);
         (y, dy)
     }
     
