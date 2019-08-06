@@ -45,6 +45,10 @@ impl<T> IdMap<T> where T: Clone {
         self.vec[id].as_mut().unwrap()
     }
 
+    pub fn has_key(&self, id: usize) -> bool {
+        id < self.vec.len() && self.vec[id].is_some()
+    }
+
     pub fn insert_free(&mut self, value: T) -> usize {
         if self.free_slots.is_empty() {
             let ind = self.vec.len();
@@ -63,5 +67,20 @@ impl<T> IdMap<T> where T: Clone {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
         self.vec.iter_mut().filter_map(|x| x.as_mut())
+    }
+
+    pub fn remove_where<P>(&mut self, predicate: P) where P: Fn(&T) -> bool {
+        for (i, elem) in self.vec.iter_mut().enumerate() {
+            let mut remove = false;
+            if let Some(item) = elem {
+                if predicate(item) {
+                    remove = true;
+                }
+            }
+            if remove {
+                *elem = None;
+                self.free_slots.push(i);
+            }
+        }
     }
 }

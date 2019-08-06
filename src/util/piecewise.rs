@@ -140,6 +140,10 @@ impl CubicFuncPiece {
         let dy = (yd / xd) * 6.0 * t * (1.0 - t);
         (y, dy)
     }
+
+    pub fn get_y2(&self) -> f32 {
+        self.y1 + self.yd
+    }
     
     pub fn get_y(&self, x: f32) -> f32 {
         self.get_y_and_dy(x).0
@@ -147,5 +151,14 @@ impl CubicFuncPiece {
     
     pub fn get_dy(&self, x: f32) -> f32 {
         self.get_y_and_dy(x).1
+    }
+
+    pub fn translate(&self, dx: f32, dy: f32) -> Self {
+        Self {
+            min_x: self.min_x + dx,
+            max_x: self.max_x + dx,
+            y1: self.y1 + dy,
+            yd: self.yd
+        }
     }
 }

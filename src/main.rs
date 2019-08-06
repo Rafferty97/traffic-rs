@@ -24,6 +24,7 @@ impl ws::Handler for Client {
             let pos: f32 = parts.next().unwrap().parse().unwrap();
             let veh_id = self.sim.add_vehicle(id);
             self.sim.set_vehicle_pos(veh_id, src_link, lane, pos);
+            self.sim.set_vehicle_dest(veh_id, dst_link);
             // todo: route to dst_link
         }
 
@@ -41,6 +42,14 @@ impl ws::Handler for Client {
                 let lat_func = CubicFunc::from_points(&[(0.0, lats.next().unwrap()), (length, lats.next().unwrap())]);
                 self.sim.add_lane(link, dist_func, lat_func);
             }
+        }
+
+        if msg_type == "conn" {
+            let src_link: usize = parts.next().unwrap().parse().unwrap();
+            let dst_link: usize = parts.next().unwrap().parse().unwrap();
+            let lanes = parts.next().unwrap();
+            let offset: f32 = parts.next().unwrap().parse().unwrap();
+            self.sim.add_connection(src_link, dst_link, lanes, offset);
         }
 
         if msg_type == "step" {
