@@ -56,6 +56,10 @@ impl Link {
 		bubble_sort(&mut self.obstacles, |a, b| a.pos.partial_cmp(&b.pos).unwrap());
 	}
 
+	pub fn get_lat(&self, lane: u8, pos: f32) -> f32 {
+		self.lanes[lane as usize].lat.get_y(pos)
+	}
+
 	pub fn car_follow_model(&self, vehs: &mut IdMap<Vehicle>, links: &IdMap<Link>) {
 		let num_obst = self.obstacles.len();
 		
@@ -70,13 +74,33 @@ impl Link {
 		let num_obst = self.obstacles.len();
 		for j in i..num_obst {
 			let obst = &self.obstacles[j];
+			// Follow if in same lane
 			if obst.lane == lane {
 				veh.follow(dist + obst.pos, obst.vel);
 				return;
 			}
-			
-			// TODO: other blockers, next lane, etc.
-
+			// Follow if blocking path
+			let pos = obst.pos - (0.5 * veh.len + 1.0);
+			let on_curr_path = veh.path.is_some()
+				&& pos + dist <= veh.path.unwrap().max_x;
+			let (lat, halfwid) = if on_curr_path {
+				let path = veh.path.unwrap();
+				let mut lat = path.get_y(pos + dist);
+				let mut halfwid = 0.5 * veh.wid;
+				if veh.changing_lanes {
+					let half_delta = 0.5 * (path.get_y2() - lat);
+					lat += half_delta;
+					halfwid += half_delta.abs();
+				}
+				lat += offset;
+				(lat, halfwid)
+			} else {
+				(self.get_lat(lane, pos), 0.5 * veh.wid)
+			};
+			let gap = (lat - obst.lat).abs() - (halfwid + obst.half_wid);
+			if gap < 0.5 {
+				veh.follow(dist + obst.pos, obst.vel);
+			}
 		}
 		// Next link
 		if r < veh.link_route.len() {

@@ -14,7 +14,8 @@ pub struct Simulation {
 	links: IdMap<Link>,
 	vehs: IdMap<Vehicle>,
 	stoplines: IdMap<StopLine>,
-	route_table: HashMap<RouteTableKey, RouteTableEntry>
+	route_table: HashMap<RouteTableKey, RouteTableEntry>,
+	lane_route_period: usize
 }
 
 impl Simulation {
@@ -25,7 +26,8 @@ impl Simulation {
 			links: IdMap::new(),
 			vehs: IdMap::new(),
 			stoplines: IdMap::new(),
-			route_table: HashMap::new()
+			route_table: HashMap::new(),
+			lane_route_period: 5
 		}
 	}
 
@@ -41,6 +43,7 @@ impl Simulation {
 			self.links.get_mut(old_link).remove_veh(id);
 		}
 		veh.set_pos(link, lane, pos);
+		veh.update_path(&self.links);
 		self.links.get_mut(link).add_veh(id);
 	}
 
@@ -87,7 +90,9 @@ impl Simulation {
 
 	pub fn step(&mut self) {
 		// Update lane decisions
+		let per = self.lane_route_period;
 		for veh in self.vehs.iter_mut() {
+			if veh.id % per != self.step % per { continue; }
 			veh.lane_decisions(&self.links);
 		}
 
@@ -101,7 +106,7 @@ impl Simulation {
 
 		// Integrate vehicles
 		for veh in self.vehs.iter_mut() {
-			// todo: veh.apply_speedlimit(&self.links);
+			veh.apply_speedlimit(&self.links);
 			veh.integrate(self.step_delta, &mut self.links);
 		}
 		
