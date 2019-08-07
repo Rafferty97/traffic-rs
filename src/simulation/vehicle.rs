@@ -111,19 +111,16 @@ impl Vehicle {
 	}
 
 	pub fn lane_decisions(&mut self, links: &IdMap<Link>) {
-		if self.changing_lanes {
+		if self.changing_lanes || self.link_route.is_empty() {
 			return;
 		}
 
 		// Decide lane route
-		if self.id % 3 == 0 && links.get(self.link).lanes.len() >= 2 && self.link_route.len() > 0 {
+		/*if self.id % 3 == 0 && links.get(self.link).lanes.len() >= 2 && self.link_route.len() > 0 {
 			self.old_lane = self.lane;
 			self.lane = 1 - self.lane;
 			self.changing_lanes = true;
-		}
-		while self.lane_route.len() < self.link_route.len() {
-			self.lane_route.push(0);
-		}
+		}*/
 
 		// Handle lane change path
 		if self.changing_lanes {
