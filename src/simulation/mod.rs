@@ -97,6 +97,11 @@ impl Simulation {
 		for link in self.links.iter() {
 			link.car_follow_model(&mut self.vehs, &self.links);
 		}
+		
+		// Stop lines
+		for stopline in self.stoplines.iter_mut() {
+			stopline.step(&mut self.vehs, &self.links);
+		}
 
 		// Integrate vehicles
 		for veh in self.vehs.iter_mut() {
@@ -186,6 +191,69 @@ struct StopLine {
 	time_until_enter: f32,
 	min_arrival: usize,
 	clear_before: f32
+}
+
+impl StopLine {
+	fn step(&mut self, vehs: &mut IdMap<Vehicle>, links: &IdMap<Link>) {
+		self.time_until_enter = std::f32::INFINITY;
+		self.min_arrival = std::usize::MAX;
+		// todo: update clear_before and remove vehs from committed_vehs
+		let link = links.get(self.link);
+		for vid in link.get_vehicles().rev() {
+			let veh = vehs.get_mut(vid);
+			if veh.lane != self.lane || veh.pos > self.pos {
+				continue;
+			}
+			if self.apply_to_veh(veh, self.pos) {
+				return;
+			}
+		}
+		for conn in link.links_in.iter() {
+			let prev_link = links.get(conn.link_in);
+			self.apply_to_link(prev_link, &[self.link], self.pos + prev_link.length, vehs, links);
+		}
+	}
+
+	fn apply_to_link(&mut self, link: &Link, route: &[usize], pos: f32, vehs: &mut IdMap<Vehicle>, links: &IdMap<Link>) {
+		let i = route.len();
+		for vid in link.get_vehicles().rev() {
+			let veh = vehs.get_mut(vid);
+			if veh.get_lane(i) != Some(self.lane) {
+				continue;
+			}
+			if veh.get_links().len() < route.len() + 1 {
+				continue;
+			}
+			if &veh.get_links()[1..(route.len() + 1)] != route {
+				continue;
+			}
+			if self.apply_to_veh(veh, pos) {
+				return;
+			}
+		}
+		for conn in link.links_in.iter() {
+			let prev_link = links.get(conn.link_in);
+			let mut new_route = Vec::with_capacity(route.len() + 1);
+			new_route.push(link.id);
+			new_route.extend(route);
+			self.apply_to_link(prev_link, &new_route, pos + prev_link.length, vehs, links);
+		}
+	}
+
+	fn apply_to_veh(&mut self, veh: &mut Vehicle, pos: f32) -> bool {
+		// todo:
+		// - Copy code for this function from C#
+		// - Calculate time_until_enter for stopline
+		// - Commits, ensuring they are cleared properly
+		// - Traffic light control
+		// - Ensuring other fields of stopline are calculated (e.g. clear_before)
+
+		if veh.vel > 0.3 {
+			veh.stop(pos);
+			return true;
+		}
+		false
+	}
 }
 
 pub struct StopLineBuilder {

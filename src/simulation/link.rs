@@ -66,6 +66,11 @@ impl Link {
 		insertion_sort(&mut self.obstacles, |a, b| a.pos.partial_cmp(&b.pos).unwrap());
 	}
 
+	pub fn get_vehicles<'a>(&'a self) -> impl DoubleEndedIterator<Item=usize> + 'a {
+		// todo: change to filter_map when other obstacles are supported
+		self.obstacles.iter().map(|o| o.veh)
+	}
+
 	pub fn get_lat(&self, lane: u8, pos: f32) -> f32 {
 		self.lanes[lane as usize].lat.get_y(pos)
 	}

@@ -88,6 +88,10 @@ impl Vehicle {
 		self.link_route.get(i).cloned()
 	}
 
+	pub fn get_links(&self) -> &[usize] {
+		&self.link_route
+	}
+
 	pub fn get_lane(&self, i: usize) -> Option<u8> {
 		self.lane_route.get(i).cloned()
 	}
