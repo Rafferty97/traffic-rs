@@ -52,6 +52,19 @@ impl ws::Handler for Client {
             self.sim.add_connection(src_link, dst_link, lanes, offset);
         }
 
+        if msg_type == "stop" {
+            let id: usize = parts.next().unwrap().parse().unwrap();
+            let link: usize = parts.next().unwrap().parse().unwrap();
+            let lane: u8 = parts.next().unwrap().parse().unwrap();
+            let pos: f32 = parts.next().unwrap().parse().unwrap();
+            let length: f32 = parts.next().unwrap().parse().unwrap();
+            let kind: simulation::StopLineType = parts.next().unwrap().parse().unwrap();
+            simulation::StopLineBuilder::new(id, link, lane, pos)
+                .with_length(length)
+                .of_type(kind)
+                .add_to_simulation(&mut self.sim);
+        }
+
         if msg_type == "step" {
             self.sim.step();
             

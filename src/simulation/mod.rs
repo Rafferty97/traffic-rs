@@ -2,6 +2,7 @@ mod vehicle;
 mod link;
 
 use core::cmp::Ordering;
+use smallvec::{SmallVec};
 use std::collections::{HashMap, HashSet};
 use crate::util::{IdMap, LinearFunc, CubicFunc};
 use vehicle::Vehicle;
@@ -39,7 +40,7 @@ impl Simulation {
 
 	pub fn set_vehicle_pos(&mut self, id: usize, link: usize, lane: u8, pos: f32) {
 		let veh = self.vehs.get_mut(id);
-		if let Some(old_link) = veh.get_link() {
+		if let Some(old_link) = veh.get_link(0) {
 			self.links.get_mut(old_link).remove_veh(id);
 		}
 		veh.set_pos(link, lane, pos);
@@ -48,7 +49,7 @@ impl Simulation {
 	}
 
 	pub fn set_vehicle_dest(&mut self, id: usize, link: usize) {
-		let src_link = self.vehs.get(id).get_link().unwrap();
+		let src_link = self.vehs.get(id).get_link(0).unwrap();
 		let route = self.find_route(src_link, link);
 		self.vehs.get_mut(id).set_route(route);
 	}
@@ -65,26 +66,19 @@ impl Simulation {
 	}
 
 	pub fn add_connection(&mut self, src_link: usize, dst_link: usize, lanes: &str, offset: f32) {
-		let iter = lanes.split(";").map(|s| {
+		let lanes = lanes.split(";").map(|s| {
 			let mut p = s.split(":");
 			let l1: u8 = p.next().unwrap().parse().unwrap();
 			let l2: u8 = p.next().unwrap().parse().unwrap();
 			(l1, l2)
-		});
-		let mut lanes = [(0, 0); 8];
-		let mut num_lanes = 0;
-		for p in iter {
-			lanes[num_lanes] = p;
-			num_lanes += 1;
-		}
+		}).collect::<SmallVec<_>>();
 		let conn = LinkConnection {
 			link_in: src_link,
 			link_out: dst_link,
-			num_lanes: num_lanes as u8,
 			lanes,
 			offset
 		};
-		self.links.get_mut(src_link).links_out.push(conn);
+		self.links.get_mut(src_link).links_out.push(conn.clone());
 		self.links.get_mut(dst_link).links_in.push(conn);
 	}
 
@@ -111,7 +105,7 @@ impl Simulation {
 		}
 		
 		// Remove exited vehicles
-		self.vehs.remove_where(|v| v.get_link().is_none());
+		self.vehs.remove_where(|v| v.get_link(0).is_none());
 
 		self.step += 1;
 	}
@@ -194,13 +188,99 @@ struct StopLine {
 	clear_before: f32
 }
 
+pub struct StopLineBuilder {
+	id: usize,
+	link: usize,
+	lane: u8,
+	pos: f32,
+	len: Option<f32>,
+	kind: Option<StopLineType>,
+	sight_dist: Option<f32>,
+	conflicts: Vec<Conflict>
+}
+
+impl StopLineBuilder {
+	pub fn new(id: usize, link: usize, lane: u8, pos: f32) -> Self {
+		Self {
+			id,
+			link,
+			lane,
+			pos,
+			len: None,
+			kind: None,
+			sight_dist: None,
+			conflicts: vec![]
+		}
+	}
+
+	pub fn with_length(mut self, len: f32) -> Self {
+		self.len = Some(len);
+		self
+	}
+
+	pub fn of_type(mut self, kind: StopLineType) -> Self {
+		self.kind = Some(kind);
+		self
+	}
+
+	pub fn with_sight_dist(mut self, dist: f32) -> Self {
+		self.sight_dist = Some(dist);
+		self
+	}
+
+	pub fn conflicts_with(mut self, stopline: usize, priority: Ordering, max_pos: f32) -> Self {
+		self.conflicts.push(Conflict {
+			stopline,
+			priority,
+			max_pos
+		});
+		self
+	}
+
+	pub fn add_to_simulation(self, simulation: &mut Simulation) {
+		let link = simulation.links.get(self.link);
+		let len = self.len.unwrap_or(link.length - self.pos);
+		let kind = self.kind.expect("Stopline type not specified.");
+		let sight_pos = self.pos - self.sight_dist.unwrap_or(50.0);
+		simulation.stoplines.insert(self.id, StopLine {
+			link: self.link,
+			lane: self.lane,
+			pos: self.pos,
+			len,
+			kind,
+			sight_pos,
+			conflicts: self.conflicts,
+			committed_vehs: HashSet::new(),
+			time_until_enter: 0.0,
+			min_arrival: std::usize::MAX,
+			clear_before: 0.0
+		});
+	}
+}
+
 #[derive(Clone, Copy)]
-enum StopLineType {
+pub enum StopLineType {
 	None,
 	Giveway,
 	Stop,
 	TrafficLight {
 		state: TrafficLightState
+	}
+}
+
+impl std::str::FromStr for StopLineType {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<StopLineType, ()> {
+		match s {
+			"none" => Ok(StopLineType::None),
+			"giveway" => Ok(StopLineType::Giveway),
+			"stop" => Ok(StopLineType::Stop),
+			"light" => Ok(StopLineType::TrafficLight {
+				state: TrafficLightState::Red
+			}),
+			_ => Err(())
+		}
 	}
 }
 

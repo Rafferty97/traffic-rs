@@ -1,6 +1,6 @@
 use smallvec::{SmallVec, smallvec};
 use super::vehicle::Vehicle;
-use crate::util::{IdMap, LinearFunc, CubicFunc, bubble_sort};
+use crate::util::{IdMap, LinearFunc, CubicFunc, insertion_sort};
 
 #[derive(Clone)]
 pub struct Link {
@@ -49,11 +49,21 @@ impl Link {
         self.links_out.iter().find(|c| c.link_out == link).unwrap().offset
     }
 
+	pub fn get_lane_connections<'a>(&'a self, link: usize) -> impl Iterator<Item=(u8, u8)> + 'a {
+		self.links_out.iter()
+			.find(|c| c.link_out == link)
+			.map(|c| &c.lanes)
+			.as_ref()
+			.unwrap()
+			.iter()
+			.cloned()
+	}
+
 	pub fn update_obstacles(&mut self, vehs: &IdMap<Vehicle>) {
 		for obst in self.obstacles.iter_mut() {
 			*obst = vehs.get(obst.veh).get_obstacle();
 		}
-		bubble_sort(&mut self.obstacles, |a, b| a.pos.partial_cmp(&b.pos).unwrap());
+		insertion_sort(&mut self.obstacles, |a, b| a.pos.partial_cmp(&b.pos).unwrap());
 	}
 
 	pub fn get_lat(&self, lane: u8, pos: f32) -> f32 {
@@ -65,11 +75,10 @@ impl Link {
 		
 		for i in 0..num_obst {
 			let veh = vehs.get_mut(self.obstacles[i].veh);
-			let lane = self.obstacles[i].lane;
-			self.car_follow_inner(i + 1, veh, lane, 0, 0.0, 0.0, links);
+			self.car_follow_inner(i + 1, veh, veh.lane, 0, 0.0, 0.0, links);
 		}
 	}
-
+	
 	fn car_follow_inner(&self, i: usize, veh: &mut Vehicle, lane: u8, r: usize, offset: f32, dist: f32, links: &IdMap<Link>) {
 		let num_obst = self.obstacles.len();
 		for j in i..num_obst {
@@ -103,27 +112,27 @@ impl Link {
 			}
 		}
 		// Next link
-		if r < veh.link_route.len() {
-			if r >= veh.lane_route.len() {
-				// Stop before reaching the next link
-				veh.stop(dist + self.length);
-				return;
+		let r = r + 1;
+		if let Some(next_link) = veh.get_link(r) {
+			if let Some(next_lane) = veh.get_lane(r) {
+				if next_lane != !0 {
+					// Search the next link
+					let offset = offset + self.get_offset_to_link(next_link);
+					links.get(next_link).car_follow_inner(0, veh, next_lane, r, offset, dist + self.length, links);
+					return;
+				}
 			}
-			// Search the next link
-			let next_link = veh.link_route[r];
-			let offset = offset + self.get_offset_to_link(next_link);
-			let lane = veh.lane_route[r];
-			links.get(next_link).car_follow_inner(0, veh, lane, r + 1, offset, dist + self.length, links);
+			// Stop before reaching the next link
+			veh.stop(dist + self.length);
 		}
 	}
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct LinkConnection {
 	pub link_in: usize,
 	pub link_out: usize,
-	pub num_lanes: u8,
-	pub lanes: [(u8, u8); 8],
+	pub lanes: SmallVec<[(u8, u8); 8]>,
     pub offset: f32
 }
 
