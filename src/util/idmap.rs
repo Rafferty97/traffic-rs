@@ -37,12 +37,12 @@ impl<T> IdMap<T> where T: Clone {
         }
     }
 
-    pub fn get(&self, id: usize) -> &T {
-        self.vec[id].as_ref().unwrap()
+    pub fn get(&self, id: usize) -> Option<&T> {
+        self.vec[id].as_ref()
     }
 
-    pub fn get_mut(&mut self, id: usize) -> &mut T {
-        self.vec[id].as_mut().unwrap()
+    pub fn get_mut(&mut self, id: usize) -> Option<&mut T> {
+        self.vec[id].as_mut()
     }
 
     pub fn has_key(&self, id: usize) -> bool {
@@ -67,6 +67,10 @@ impl<T> IdMap<T> where T: Clone {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
         self.vec.iter_mut().filter_map(|x| x.as_mut())
+    }
+
+    pub fn len(&self) -> usize {
+        self.vec.len()
     }
 
     pub fn remove_where<P>(&mut self, predicate: P) where P: Fn(&T) -> bool {

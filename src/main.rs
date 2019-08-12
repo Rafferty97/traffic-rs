@@ -65,6 +65,16 @@ impl ws::Handler for Client {
                 .add_to_simulation(&mut self.sim);
         }
 
+        if msg_type == "conflict" {
+            let stop1: usize = parts.next().unwrap().parse().unwrap();
+            let stop2: usize = parts.next().unwrap().parse().unwrap();
+            let priority: i8 = parts.next().unwrap().parse().unwrap();
+            let _min_pos: f32 = parts.next().unwrap().parse().unwrap();
+            let max_pos: f32 = parts.next().unwrap().parse().unwrap();
+            let priority = priority.cmp(&0);
+            self.sim.add_conflict(stop1, stop2, priority, max_pos);
+        }
+
         if msg_type == "step" {
             self.sim.step();
             

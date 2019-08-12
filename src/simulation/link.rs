@@ -61,7 +61,7 @@ impl Link {
 
 	pub fn update_obstacles(&mut self, vehs: &IdMap<Vehicle>) {
 		for obst in self.obstacles.iter_mut() {
-			*obst = vehs.get(obst.veh).get_obstacle();
+			*obst = vehs.get(obst.veh).unwrap().get_obstacle();
 		}
 		insertion_sort(&mut self.obstacles, |a, b| a.pos.partial_cmp(&b.pos).unwrap());
 	}
@@ -79,7 +79,7 @@ impl Link {
 		let num_obst = self.obstacles.len();
 		
 		for i in 0..num_obst {
-			let veh = vehs.get_mut(self.obstacles[i].veh);
+			let veh = vehs.get_mut(self.obstacles[i].veh).unwrap();
 			self.car_follow_inner(i + 1, veh, veh.lane, 0, 0.0, 0.0, links);
 		}
 	}
@@ -123,7 +123,8 @@ impl Link {
 				if next_lane != !0 {
 					// Search the next link
 					let offset = offset + self.get_offset_to_link(next_link);
-					links.get(next_link).car_follow_inner(0, veh, next_lane, r, offset, dist + self.length, links);
+					links.get(next_link).unwrap()
+						.car_follow_inner(0, veh, next_lane, r, offset, dist + self.length, links);
 					return;
 				}
 			}

@@ -131,13 +131,13 @@ impl Vehicle {
 	fn compute_lane_dists(&mut self, links: &IdMap<Link>) {
 		let mut link_iter = self.link_route.iter().rev().cloned();
 		let link_id = link_iter.next().unwrap();
-		let link = links.get(link_id);
+		let link = links.get(link_id).unwrap();
 		self.lane_dists = vec![LaneDistances {
 			lanes: smallvec![[f32::INFINITY; 4]; link.lanes.len()]
 		}];
 		let mut succ_link_id = link_id;
 		while let Some(link_id) = link_iter.next() {
-			let link = links.get(link_id);
+			let link = links.get(link_id).unwrap();
 			let mut lanes: SmallVec<[[f32; 4]; 8]> = smallvec![[0.0; 4]; link.lanes.len()];
 			let succ_lanes = &self.lane_dists.last().unwrap().lanes;
 			let mut min_offset = 4;
@@ -179,6 +179,7 @@ impl Vehicle {
 			(Some(_), None) => Ordering::Greater,
 			(Some(lane1), Some(lane2)) => {
 				// The best lane is the one requiring the fewest lane-changes
+				// todo: Factor in lane occupation etc.
 				for i in (0..4).rev() {
 					let c = lane1[i].partial_cmp(&lane2[i]).unwrap();
 					if c != Ordering::Equal {
@@ -232,7 +233,7 @@ impl Vehicle {
 			let prev_lane = self.lane_route[i];
 			let prev_link = self.link_route[i];
 			let link = self.link_route[i + 1];
-			let next_lane = links.get(prev_link)
+			let next_lane = links.get(prev_link).unwrap()
 				.get_lane_connections(link)
 				.filter_map(|c| if c.0 == prev_lane { Some(c.1) } else { None })
 				.fold(!0, |a, b| {
@@ -265,26 +266,26 @@ impl Vehicle {
 		let mut ind = 0;
 		let mut offset = 0.0;
 		let mut pos = pos;
-		let mut link = links.get(self.link);
+		let mut link = links.get(self.link).unwrap();
 		while pos > link.length {
 			pos -= link.length;
 			ind += 1;
 			let next_link = self.link_route[ind];
 			offset += link.get_offset_to_link(next_link);
-			link = links.get(next_link);
+			link = links.get(next_link).unwrap();
 		}
 		link.get_lat(self.lane_route[ind], pos) - offset
 	}
 
 	pub fn apply_speedlimit(&mut self, links: &IdMap<Link>) {
-		let link = links.get(self.link);
+		let link = links.get(self.link).unwrap();
 
 		// Current link speed limit
 		apply_limit(self, link.speed_limit, 0.0);
 
 		// Next link speed limit
 		if let Some(link_id) = self.link_route.get(1) {
-			let next_link = links.get(*link_id);
+			let next_link = links.get(*link_id).unwrap();
 			apply_limit(self, next_link.speed_limit, link.length - self.pos);
 		}
 
@@ -336,17 +337,17 @@ impl Vehicle {
 		self.acc = self.max_acc;
 		
 		// Advance the link
-		let len = links.get(self.link).length;
+		let len = links.get(self.link).unwrap().length;
 		if self.pos > len {
-			links.get_mut(self.link).remove_veh(self.id);
+			links.get_mut(self.link).unwrap().remove_veh(self.id);
 			self.link_route.remove(0);
 			self.lane_route.remove(0);
 			self.lane_dists.remove(0);
 			if !self.link_route.is_empty() {
 				let next_link = self.link_route[0];
-				let lat_off = links.get(self.link).get_offset_to_link(next_link);
+				let lat_off = links.get(self.link).unwrap().get_offset_to_link(next_link);
 				self.link = next_link;
-				links.get_mut(self.link).add_veh(self.id);
+				links.get_mut(self.link).unwrap().add_veh(self.id);
 				self.pos -= len;
 				self.lane = self.lane_route[0];
 				if self.changing_lanes {
@@ -367,7 +368,7 @@ impl Vehicle {
 
 	pub fn update_path(&mut self, links: &IdMap<Link>) {
 		if self.path.map(|p| self.pos > p.max_x).unwrap_or(true) {
-			self.path = Some(links.get(self.link)
+			self.path = Some(links.get(self.link).unwrap()
 				.lanes[self.lane as usize]
 				.lat.get_piece(self.pos));
 			self.changing_lanes = false;
