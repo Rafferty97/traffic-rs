@@ -91,6 +91,10 @@ impl Simulation {
 		});
 	}
 
+	pub fn get_step(&self) -> usize {
+		self.step
+	}
+
 	pub fn step(&mut self) {
 		// Update lane decisions
 		let per = self.lane_route_period;

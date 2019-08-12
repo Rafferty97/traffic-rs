@@ -3,11 +3,35 @@ mod simulation;
 
 use util::{LinearFunc, CubicFunc};
 use Result::{Ok};
+use std::io::{self, Write};
+use byteorder::{NetworkEndian as NE, WriteBytesExt};
 use ws::{listen, Message};
 
 struct Client {
     out: ws::Sender,
     sim: simulation::Simulation
+}
+
+impl Client {
+    fn step<W: Write>(&mut self, w: &mut W) -> io::Result<()> {
+        self.sim.step();
+        // Code for a frame message
+        w.write_u32::<NE>(1)?;
+        // The frame index
+        w.write_u32::<NE>(self.sim.get_step() as u32)?;
+        // The vehicle positions
+        for veh in self.sim.get_vehicle_states() {
+            w.write_u32::<NE>(veh.user_id as u32)?;
+            w.write_u32::<NE>(veh.link as u32)?;
+            w.write_f32::<NE>(veh.pos)?;
+            w.write_f32::<NE>(veh.vel)?;
+            w.write_f32::<NE>(veh.lat)?;
+            w.write_f32::<NE>(veh.dlat)?;
+        }
+        w.write_u32::<NE>(!0)?;
+        // Everything succeeded
+        Ok(())
+    }
 }
 
 impl ws::Handler for Client {
@@ -76,7 +100,13 @@ impl ws::Handler for Client {
         }
 
         if msg_type == "step" {
-            self.sim.step();
+            let num_steps: usize = parts.next().unwrap().parse().unwrap();
+            let mut buffer = vec![];
+            for _i in 0..num_steps {
+                self.step(&mut buffer).unwrap();
+            }
+            self.out.send(buffer).unwrap();
+            /*self.sim.step();
             
             let vehs = self.sim.get_vehicle_states()
                 .map(|v| {
@@ -88,7 +118,7 @@ impl ws::Handler for Client {
                 .collect::<Vec<_>>()
                 .join(", ");
                 
-            self.out.send(format!("{{ \"vehicles\": [{}] }}", vehs)).unwrap();
+            self.out.send(format!("{{ \"vehicles\": [{}] }}", vehs)).unwrap(); */
         }
         Ok(())
     }
@@ -96,7 +126,7 @@ impl ws::Handler for Client {
 
 fn main() {
     listen("127.0.0.1:8080", |out| {
-        let sim = simulation::Simulation::new(1f32 / 15f32);
+        let sim = simulation::Simulation::new(1f32 / 10f32);
         Client {
             out,
             sim
