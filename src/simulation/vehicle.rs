@@ -163,6 +163,8 @@ impl Vehicle {
 		}
 		self.lane_dists.reverse();
 
+		assert!(self.lane_dists.len() == self.link_route.len());
+
 		/* for d in self.lane_dists.iter() {
 			println!("{:?}", d.lanes);
 		}
@@ -249,7 +251,9 @@ impl Vehicle {
 
 		// Handle lane change path
 		if self.changing_lanes {
-			let dist = 40.0; // todo
+			// todo: How to handle not enough distance left?
+			let dist_left = self.lane_dists[0].lanes[self.old_lane as usize][0] - self.pos;
+			let dist = f32::min(40.0, 0.8 * dist_left);
 			let end_lat = self.get_lat_at_pos(self.pos + dist, links);
 			self.path = Some(CubicFuncPiece {
 				min_x: self.pos,
@@ -342,7 +346,9 @@ impl Vehicle {
 			links.get_mut(self.link).unwrap().remove_veh(self.id);
 			self.link_route.remove(0);
 			self.lane_route.remove(0);
-			self.lane_dists.remove(0);
+			if !self.lane_dists.is_empty() {
+				self.lane_dists.remove(0);
+			}
 			if !self.link_route.is_empty() {
 				let next_link = self.link_route[0];
 				let lat_off = links.get(self.link).unwrap().get_offset_to_link(next_link);
