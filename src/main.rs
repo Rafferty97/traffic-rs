@@ -40,6 +40,11 @@ impl ws::Handler for Client {
         let mut parts = text.split(" ");
         let msg_type = parts.next().unwrap();
 
+        if msg_type == "start" {
+            let delta: f32 = parts.next().unwrap().parse().unwrap();
+            self.sim = simulation::Simulation::new(delta);
+        }
+
         if msg_type == "veh" {
             let id: usize = parts.next().unwrap().parse().unwrap();
             let src_link: usize = parts.next().unwrap().parse().unwrap();
@@ -106,19 +111,6 @@ impl ws::Handler for Client {
                 self.step(&mut buffer).unwrap();
             }
             self.out.send(buffer).unwrap();
-            /*self.sim.step();
-            
-            let vehs = self.sim.get_vehicle_states()
-                .map(|v| {
-                    format!(
-                        "{{ \"id\": 0, \"link\": {}, \"pos\": {}, \"lat\": {}, \"vlat\": {}, \"comm\": false }}",
-                        v.link, v.pos, v.lat, v.dlat
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-                
-            self.out.send(format!("{{ \"vehicles\": [{}] }}", vehs)).unwrap(); */
         }
         Ok(())
     }
