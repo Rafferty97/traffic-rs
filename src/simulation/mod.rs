@@ -196,6 +196,7 @@ struct RouteTableEntry {
 
 #[derive(Clone)]
 struct StopLine {
+	id: usize,
 	link: usize,
 	lane: u8,
 	pos: f32,
@@ -212,6 +213,7 @@ struct StopLine {
 impl StopLine {
 	fn default() -> Self {
 		Self {
+			id: 0,
 			link: 0,
 			lane: 0,
 			pos: 0.0,
@@ -310,7 +312,7 @@ impl StopLine {
 		}
 
 		// If before the stop sign, slow down
-		if veh.pos < pos - 10.0 {
+		if veh.pos < pos - 6.0 {
 			veh.stop(pos);
 			return true;
 		}
@@ -322,10 +324,10 @@ impl StopLine {
 		}
 
 		// Commit
-		if true {
+		//if veh.pos > pos - 6.0 {
 			self.committed_vehs.insert(veh.id);
 			self.clear_before = 0.0;
-		}
+		//}
 		
 		false
 	}
@@ -393,6 +395,7 @@ impl StopLineBuilder {
 		let kind = self.kind.expect("Stopline type not specified.");
 		let sight_pos = self.pos - self.sight_dist.unwrap_or(50.0);
 		simulation.stoplines.insert(self.id, StopLine {
+			id: self.id,
 			link: self.link,
 			lane: self.lane,
 			pos: self.pos,
