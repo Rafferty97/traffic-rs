@@ -125,7 +125,7 @@ impl ws::Handler for Client {
 }
 
 fn main() {
-    listen("127.0.0.1:8080", |out| {
+    listen("0.0.0.0:8080", |out| {
         let sim = simulation::Simulation::new(1f32 / 10f32);
         Client {
             out,
